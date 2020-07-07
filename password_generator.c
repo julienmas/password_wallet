@@ -87,7 +87,7 @@ void hashToString(char *output, const unsigned char *hash)
 /* return 1 if the attempt is the password, otherwise 0 */
 int checkPassword(unsigned char *attempt)
 {
-	tempo(1000);
+	tempo(300000000); // to prevent a brute-force attack
   char *sHashPassword = "e1b9005b2bd9380bf2ad43494b6a0c3de7db20532a7297fde352214e9610e4b7"; //2536
   unsigned char *hashAttempt = SHA256(attempt, strlen(attempt), 0);
   char sHashAttempt[HASH_HEX_SIZE];
@@ -100,7 +100,7 @@ int checkPassword(unsigned char *attempt)
 	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
 		printf("%02x", hashAttempt[i]);
 	putchar('\n'); */
-	printf("p %s\na %s\n", sHashPassword, sHashAttempt);
+	//printf("p %s\na %s\n", sHashPassword, sHashAttempt);
   return 0;
 }
 
