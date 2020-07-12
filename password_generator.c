@@ -22,7 +22,7 @@ typedef struct
 	char login[50];
 	char password[PASSWORD_LENGTH];
 	int cipher[PASSWORD_LENGTH];
-	char hash[PASSWORD_LENGTH];
+	char hash[HASH_HEX_SIZE];
 }account_t;
 
 void erreur_IO ( const char *message ) {
@@ -45,7 +45,7 @@ void password_generator(char p[PASSWORD_LENGTH])
 	int c; //int in ascii table of the new char
 	float p_maj = 0.1; //probability that c will be in MAJ (if it's a letter)
 	float a; // 0<=a<=1
-	srand(time(NULL));   // Initialization, should only be called once.
+	srand(time(NULL));   // Initialization, should only be called nonce.
 	FILE* fpasswords; 	
 
 	for (int i = 0; i< PASSWORD_LENGTH; i++)
@@ -89,7 +89,7 @@ void hashToString(char *output, const unsigned char *hash)
 /* return 1 if the attempt is the password, otherwise 0 */
 int checkPassword(unsigned char *attempt)
 {
-  	tempo(4000);
+  	tempo(300000000); // to slow brute-force attack
 	char *sHashPassword = "e1b9005b2bd9380bf2ad43494b6a0c3de7db20532a7297fde352214e9610e4b7"; //2536
 	unsigned char *hashAttempt = SHA256(attempt, strlen(attempt), 0);
 	char sHashAttempt[HASH_HEX_SIZE];
@@ -102,18 +102,17 @@ int checkPassword(unsigned char *attempt)
 	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
 		printf("%02x", hashAttempt[i]);
 	putchar('\n'); */
-	printf("p %s\na %s\n", sHashPassword, sHashAttempt);
   return 0;
 }
 
-void createHash(char *passwordAttempt, int once, unsigned char* hash)
+void createHash(char *passwordAttempt, int nonce, unsigned char* hash)
 {
 	int l = strlen(passwordAttempt);
 	unsigned char attemptp[l + 1];
-	char sOnce[2];
-	sprintf(sOnce, "%d", once);
+	char sNonce[2];
+	sprintf(sNonce, "%d", nonce);
 	strcpy(attemptp, passwordAttempt);
-	strcat(attemptp, sOnce);
+	strcat(attemptp, sNonce);
 	hashToString(hash, SHA256(attemptp, l+1, 0));
 }
 
@@ -272,17 +271,16 @@ void printAccount(account_t a)
 	{
 		printf("%d ", a.cipher[i]);
 	}
-	printf("\nHash : %s", a.hash);
+	printf("\nHash : %s\n", a.hash);
 }
 
 
 int main(void)
 {
 // VAR INIT
-  	char passwordAttempt[5];
-	account_t a;
+  	char passwordAttempt[10];
 	FILE* fpasswords;
-	account_t taba[34];
+	account_t taba[256];
 
 // LOGIN
 	printf("Password : ");
@@ -303,15 +301,16 @@ int main(void)
 	fpasswords = fopen("passwords.txt", "r");
 	while(flag != -1)
 	{
+		nb_passwords++;
 		memset(taba[nb_passwords].password, 0, sizeof(taba[nb_passwords].password));
 		memset(taba[nb_passwords].hash, 0, sizeof(taba[nb_passwords].hash));
-		nb_passwords++;
 		fscanf(fpasswords, "%s %s", taba[nb_passwords].name, taba[nb_passwords].login);
 		for (int i = 0; i < PASSWORD_LENGTH; i++)
 		{
 			flag = fscanf(fpasswords, "%d", &taba[nb_passwords].cipher[i]);
 		}
 	}
+
 	unsigned char hash[SHA256_DIGEST_LENGTH];
 	for (int i = 0; i < nb_passwords; i++)
 	{
@@ -324,25 +323,27 @@ int main(void)
 	const int menuPasswordGeneration = 1;
 	const int menuAddPassword = 2;
 	const int quit = 3;
+	char schoice[2];
 	int choice = quit+1;
-
+	
 	while (choice != quit)
 	{
+		choice = quit+1;
 		printf("\n** MENU **\nDisplay passwords: %d\nPassword generation: %d\nAdd password: %d\nQuit: %d\n", menuDisplayPasswords, menuPasswordGeneration,menuAddPassword,quit);
-		scanf("%d", &choice);
+		scanf("%s", schoice);
+		sscanf(schoice, "%d", &choice);
 		
 		switch(choice)
 		{
 			case 0: //menuDisplayPasswords
 				for (int i = 0; i < nb_passwords; i++)
 				{
-					printf("name %s; login: %s; password: %s\n\n", taba[i].name, taba[i].login, taba[i].password);
+					printf("\n%s %s %s\n", taba[i].name, taba[i].login, taba[i].password);
 				}
 				break;
 
 			case 1: //menuPasswordGeneration
-			// password generator
-				printf("Name : ");
+				printf("\nName : ");
 				scanf("%s", taba[nb_passwords].name);
 				printf("Login : ");
 				scanf("%s", taba[nb_passwords].login);
@@ -350,27 +351,32 @@ int main(void)
 				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
 				xorEncryption(taba[nb_passwords].hash,taba[nb_passwords].password, taba[nb_passwords].cipher);
 				// display new password
-				printf("%s\n", taba[nb_passwords].password);
+				printf("Robust password : %s\n", taba[nb_passwords].password);
 				// save in passwords.txt
 				fprintAccount(taba[nb_passwords]);
 				nb_passwords++;
+				getchar(); // pause FONCTIONNE PAS POUR RAISON INCONNUE
 				break;
 
 			case 2: //menuAddPassword
-				printf("Name : ");
+				printf("\nName : ");
 				scanf("%s", taba[nb_passwords].name);
 				printf("Login : ");
 				scanf("%s", taba[nb_passwords].login);
 				printf("Password : ");
 				scanf("%s", taba[nb_passwords].password);
 				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
-				xorEncryption(taba[nb_passwords].hash,taba[nb_passwords].password, taba[nb_passwords].cipher);
-				fprintAccount(a);
+				xorEncryption(taba[nb_passwords].hash, taba[nb_passwords].password, taba[nb_passwords].cipher);
+				fprintAccount(taba[nb_passwords]);
 				nb_passwords++;
 				break;
-
-			case 3: //quit
-				return 0;
+			
+			case 3: // quit
+				break;
+			
+			default:
+				//choice = quit+1;
+				break;
 		}
 	}
 	return 0;
