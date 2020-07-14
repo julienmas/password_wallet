@@ -7,6 +7,7 @@ contributors: "MASTRANGELO Julien"
     - [Installation](#installation)
     - [Usage](#usage)
     - [Features](#Features)
+    - [Credits](#Credits)
 
 
 # password_wallet
@@ -76,7 +77,7 @@ A menu is displayed. Tap the number of your feature's choice, then tap enter.
 | Sort accounts by alphabetical order            | ❌      |
 
 
-## Crédits
+## Credits
 
 ***
 
