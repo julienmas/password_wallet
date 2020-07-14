@@ -67,7 +67,7 @@ A menu is displayed. Tap the number of your feature's choice, then tap enter.
 
 | Feature                                        | Status |
 | ---------------------------------------------- | ------ |
-| Connection with a master password (breakable)  | ✅     |
+| Connection with a master password              | ✅     |
 | Password generation                            | ✅     |
 | Passwords encryption/decryption                | ✅     |
 | Manually add a password                        | ✅     |

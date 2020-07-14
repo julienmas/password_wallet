@@ -315,20 +315,25 @@ void printAccount(account_t a)
 /* return 1 if the attempt is the password, otherwise 0 */
 int checkPassword(unsigned char *attempt)
 {
-  	tempo(300000000); // to slow brute-force attack
-	char *sHashPassword = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0"; // 0000
-	unsigned char *hashAttempt = SHA256(attempt, strlen(attempt), 0);
+	tempo(300000000); // to slow brute-force attack
+	char *salt = "$klp65q£!bszqHIh7";
+	char saltedAttempt[strlen(attempt) + strlen(salt)];
+	strcpy(saltedAttempt, attempt);
+	strcat(saltedAttempt, salt);
+	char *sHashPassword = "3c9096d5407a7f31ee36b283fad1274f044215ace8485ebaf5efc2615abe5eff"; // 0000 + salt
+	unsigned char *hashAttempt = SHA256(saltedAttempt, strlen(saltedAttempt), 0);
 	char sHashAttempt[HASH_HEX_SIZE];
 	hashToString(sHashAttempt, hashAttempt);
 
 	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) == 0)
 	{
+		printf("Wrong password\n");
 		return 1;
 	}
 	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
 		printf("%02x", hashAttempt[i]);
 	putchar('\n'); */
-  return 0;
+	return 0;
 }
 
 void password_generator(char p[PASSWORD_LENGTH])
