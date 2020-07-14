@@ -1,4 +1,9 @@
-/* Password wallet */
+/* Password wallet 
+ * Author : Julien Mastrangelo
+ * Created in July 2020
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,14 +12,12 @@
 #include <openssl/sha.h> // add SHA256 function
 #include <errno.h>
 
-#define LIGNE_MAX 5
-#define HASH_SIZE 32
+#define PASSWORD_LENGTH 19 //16 characters and 3 "-" : xxxx-xxxx-xxxx-xxxx
+#define NB_ACCOUNT 256
 #define HASH_HEX_SIZE 65
-
 #ifndef SHA256_DIGEST_LENGTH
 #define SHA256_DIGEST_LENGTH    32
 #endif
-#define PASSWORD_LENGTH 19 //16 characters and 3 "-"
 
 typedef struct 
 {
@@ -25,7 +28,121 @@ typedef struct
 	char hash[HASH_HEX_SIZE];
 }account_t;
 
-void erreur_IO ( const char *message ) {
+
+void erreur_IO (const char *message );
+int tempo(int n);
+int hexToBinary(char c);
+void hashToString(char *output, const unsigned char *hash);
+void fprintAccount(account_t a); // print a in passwords.txt (name, login, cipher)
+void printAccount(account_t a); // print a on console
+int checkPassword(unsigned char *attempt); // return 1 if the attempt is the password, otherwise 0 
+void password_generator(char p[PASSWORD_LENGTH]);
+void createHash(char *passwordAttempt, int nonce, unsigned char* hash); // hash = SHA256(passwordAttempt+nonce)
+void xorEncryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH]); // cipher = hash XOR password
+void xorDecryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH]); // password = hash XOR cipher
+
+
+int main(void)
+{
+// VAR INIT
+	account_t taba[NB_ACCOUNT];
+
+// LOGIN
+	char passwordAttempt[21];
+	printf("Password : ");
+	scanf("%s", passwordAttempt);
+
+	if (checkPassword(passwordAttempt) != 1)
+	{
+		return 0;
+	}
+
+// READ passwords.txt and fill taba
+	int flag = 0;
+	int nb_passwords = -1;
+	FILE* fpasswords = fopen("passwords.txt", "r");
+	while(flag != -1)
+	{
+		nb_passwords++;
+		memset(taba[nb_passwords].password, 0, sizeof(taba[nb_passwords].password));
+		memset(taba[nb_passwords].hash, 0, sizeof(taba[nb_passwords].hash));
+		fscanf(fpasswords, "%s %s", taba[nb_passwords].name, taba[nb_passwords].login);
+		for (int i = 0; i < PASSWORD_LENGTH; i++)
+		{
+			flag = fscanf(fpasswords, "%d", &taba[nb_passwords].cipher[i]);
+		}
+	}
+	fclose(fpasswords);
+
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+	for (int i = 0; i < nb_passwords; i++)
+	{
+		createHash(passwordAttempt, i, taba[i].hash);
+		xorDecryption(taba[i].hash, taba[i].password, taba[i].cipher);
+	}
+
+// MENU
+	const int menuDisplayPasswords = 0;
+	const int menuPasswordGeneration = 1;
+	const int menuAddPassword = 2;
+	const int quit = 3;
+	char schoice[2];
+	int choice = quit+1;
+	
+	while (choice != quit)
+	{
+		printf("\n** MENU **\nDisplay passwords: %d\nPassword generation: %d\nAdd password: %d\nQuit: %d\n", menuDisplayPasswords, menuPasswordGeneration,menuAddPassword,quit);
+		scanf("%s", schoice);
+		sscanf(schoice, "%d", &choice);
+		
+		switch(choice)
+		{
+			case 0: //menuDisplayPasswords
+				for (int i = 0; i < nb_passwords; i++)
+				{
+					printf("\n%s %s %s\n", taba[i].name, taba[i].login, taba[i].password);
+				}
+				break;
+
+			case 1: //menuPasswordGeneration
+				printf("\nName : ");
+				scanf("%s", taba[nb_passwords].name);
+				printf("Login : ");
+				scanf("%s", taba[nb_passwords].login);
+				password_generator(taba[nb_passwords].password);
+				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
+				xorEncryption(taba[nb_passwords].hash,taba[nb_passwords].password, taba[nb_passwords].cipher);
+				printf("Robust password : %s\n", taba[nb_passwords].password);	// display new password
+				fprintAccount(taba[nb_passwords]);	// save it in passwords.txt
+				nb_passwords++;
+				getchar(); // pause FONCTIONNE PAS POUR RAISON INCONNUE
+				break;
+
+			case 2: //menuAddPassword
+				printf("\nName : ");
+				scanf("%s", taba[nb_passwords].name);
+				printf("Login : ");
+				scanf("%s", taba[nb_passwords].login);
+				printf("Password : ");
+				scanf("%s", taba[nb_passwords].password);
+				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
+				xorEncryption(taba[nb_passwords].hash, taba[nb_passwords].password, taba[nb_passwords].cipher);
+				fprintAccount(taba[nb_passwords]);
+				nb_passwords++;
+				break;
+			
+			case 3: // quit
+				break;
+			
+			default:
+				break;
+		}
+	}
+	return 0;
+}
+
+void erreur_IO (const char *message )
+{
   perror (message);
   exit (EXIT_FAILURE);
 }
@@ -38,82 +155,6 @@ int tempo(int n)
 		a++;
 	}
 	return a;
-}
-
-void password_generator(char p[PASSWORD_LENGTH])
-{
-	int c; //int in ascii table of the new char
-	float p_maj = 0.1; //probability that c will be in MAJ (if it's a letter)
-	float a; // 0<=a<=1
-	srand(time(NULL));   // Initialization, should only be called nonce.
-	FILE* fpasswords; 	
-
-	for (int i = 0; i< PASSWORD_LENGTH; i++)
-	{
-		c = 60;
-		while(c>57 && c <97)
-		{
-			c = rand()%75;	// so that c is a number or 
-			c += 48;		// a min letter in ascii table
-		}
-		if (c > 96)
-		{
-			a = (rand()+1.0)/(RAND_MAX+1.0);
-			if (a < p_maj)
-				c -= 32; //change c in MAJ
-		}
-		p[i] = c;
-	}
-	for(int j = 4; j<19; j+=5)
-		p[j] = 45; // puts "-"
-	p[PASSWORD_LENGTH] = '\0';
-}
-
-void hashToString(char *output, const unsigned char *hash)
-{
-	char buffer[3];
-	char hex_hash[HASH_HEX_SIZE] = {0};
-
-	for(int i = 0; i < HASH_SIZE; i++)
-	{
-		memset(buffer, 0, sizeof(buffer));
-		sprintf(buffer,"%02x", hash[i]);
-		strcat(hex_hash, buffer);
-	}
-
-	strcpy(output,hex_hash);
-
-	output[HASH_HEX_SIZE] = 0;
-}
-
-/* return 1 if the attempt is the password, otherwise 0 */
-int checkPassword(unsigned char *attempt)
-{
-  	tempo(300000000); // to slow brute-force attack
-	char *sHashPassword = "e1b9005b2bd9380bf2ad43494b6a0c3de7db20532a7297fde352214e9610e4b7"; //2536
-	unsigned char *hashAttempt = SHA256(attempt, strlen(attempt), 0);
-	char sHashAttempt[HASH_HEX_SIZE];
-	hashToString(sHashAttempt, hashAttempt);
-
-	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) == 0)
-	{
-		return 1;
-	}
-	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-		printf("%02x", hashAttempt[i]);
-	putchar('\n'); */
-  return 0;
-}
-
-void createHash(char *passwordAttempt, int nonce, unsigned char* hash)
-{
-	int l = strlen(passwordAttempt);
-	unsigned char attemptp[l + 1];
-	char sNonce[2];
-	sprintf(sNonce, "%d", nonce);
-	strcpy(attemptp, passwordAttempt);
-	strcat(attemptp, sNonce);
-	hashToString(hash, SHA256(attemptp, l+1, 0));
 }
 
 int hexToBinary(char c)
@@ -231,24 +272,21 @@ int hexToBinary(char c)
 	return a;
 }
 
-void xorEncryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH])
+void hashToString(char *output, const unsigned char *hash)
 {
-	int hexi;
-	for (int i = 0; i < PASSWORD_LENGTH; i++)
-	{
-		hexi = hexToBinary(hash[i]);
-		cipher[i] = hexi ^ password[i];
-	}
-}
+	char buffer[3];
+	char hex_hash[HASH_HEX_SIZE] = {0};
 
-void xorDecryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH])
-{
-	int hexi;
-	for (int i = 0; i < PASSWORD_LENGTH; i++)
+	for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
 	{
-		hexi = hexToBinary(hash[i]);
-		password[i] = hexi ^ cipher[i];
+		memset(buffer, 0, sizeof(buffer));
+		sprintf(buffer,"%02x", hash[i]);
+		strcat(hex_hash, buffer);
 	}
+
+	strcpy(output,hex_hash);
+
+	output[HASH_HEX_SIZE] = 0;
 }
 
 void fprintAccount(account_t a)
@@ -274,110 +312,80 @@ void printAccount(account_t a)
 	printf("\nHash : %s\n", a.hash);
 }
 
-
-int main(void)
+/* return 1 if the attempt is the password, otherwise 0 */
+int checkPassword(unsigned char *attempt)
 {
-// VAR INIT
-  	char passwordAttempt[10];
-	FILE* fpasswords;
-	account_t taba[256];
+  	tempo(300000000); // to slow brute-force attack
+	char *sHashPassword = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0"; // 0000
+	unsigned char *hashAttempt = SHA256(attempt, strlen(attempt), 0);
+	char sHashAttempt[HASH_HEX_SIZE];
+	hashToString(sHashAttempt, hashAttempt);
 
-// LOGIN
-	printf("Password : ");
-	scanf("%s", passwordAttempt);
-
-	if (checkPassword(passwordAttempt) != 1)
+	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) == 0)
 	{
-		return 0;
+		return 1;
 	}
+	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+		printf("%02x", hashAttempt[i]);
+	putchar('\n'); */
+  return 0;
+}
 
-	unsigned char *hashAttempt = SHA256(passwordAttempt, strlen(passwordAttempt), 0);
-  	char sHashAttempt[HASH_HEX_SIZE];
-  	hashToString(sHashAttempt, hashAttempt);
+void password_generator(char p[PASSWORD_LENGTH])
+{
+	int c; // int in ascii table of the new char
+	float p_maj = 0.1; // probability that c will be in MAJ (if it's a letter)
+	float a; // 0 <= a <= 1
+	srand(time(NULL));   // Initialization, should only be called nonce.
 
-// LECTURES DONNES
-	int flag = 0;
-	int nb_passwords = -1;
-	fpasswords = fopen("passwords.txt", "r");
-	while(flag != -1)
+	for (int i = 0; i< PASSWORD_LENGTH; i++)
 	{
-		nb_passwords++;
-		memset(taba[nb_passwords].password, 0, sizeof(taba[nb_passwords].password));
-		memset(taba[nb_passwords].hash, 0, sizeof(taba[nb_passwords].hash));
-		fscanf(fpasswords, "%s %s", taba[nb_passwords].name, taba[nb_passwords].login);
-		for (int i = 0; i < PASSWORD_LENGTH; i++)
+		c = 60;
+		while(c>57 && c <97)
 		{
-			flag = fscanf(fpasswords, "%d", &taba[nb_passwords].cipher[i]);
+			c = rand()%75;	// so that c is a number or 
+			c += 48;		// a min letter in ascii table
 		}
-	}
-
-	unsigned char hash[SHA256_DIGEST_LENGTH];
-	for (int i = 0; i < nb_passwords; i++)
-	{
-		createHash(passwordAttempt, i, taba[i].hash);
-		xorDecryption(taba[i].hash, taba[i].password, taba[i].cipher);
-	}
-
-// MENU
-	const int menuDisplayPasswords = 0;
-	const int menuPasswordGeneration = 1;
-	const int menuAddPassword = 2;
-	const int quit = 3;
-	char schoice[2];
-	int choice = quit+1;
-	
-	while (choice != quit)
-	{
-		choice = quit+1;
-		printf("\n** MENU **\nDisplay passwords: %d\nPassword generation: %d\nAdd password: %d\nQuit: %d\n", menuDisplayPasswords, menuPasswordGeneration,menuAddPassword,quit);
-		scanf("%s", schoice);
-		sscanf(schoice, "%d", &choice);
-		
-		switch(choice)
+		if (c > 96)
 		{
-			case 0: //menuDisplayPasswords
-				for (int i = 0; i < nb_passwords; i++)
-				{
-					printf("\n%s %s %s\n", taba[i].name, taba[i].login, taba[i].password);
-				}
-				break;
-
-			case 1: //menuPasswordGeneration
-				printf("\nName : ");
-				scanf("%s", taba[nb_passwords].name);
-				printf("Login : ");
-				scanf("%s", taba[nb_passwords].login);
-				password_generator(taba[nb_passwords].password);
-				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
-				xorEncryption(taba[nb_passwords].hash,taba[nb_passwords].password, taba[nb_passwords].cipher);
-				// display new password
-				printf("Robust password : %s\n", taba[nb_passwords].password);
-				// save in passwords.txt
-				fprintAccount(taba[nb_passwords]);
-				nb_passwords++;
-				getchar(); // pause FONCTIONNE PAS POUR RAISON INCONNUE
-				break;
-
-			case 2: //menuAddPassword
-				printf("\nName : ");
-				scanf("%s", taba[nb_passwords].name);
-				printf("Login : ");
-				scanf("%s", taba[nb_passwords].login);
-				printf("Password : ");
-				scanf("%s", taba[nb_passwords].password);
-				createHash(passwordAttempt, nb_passwords, taba[nb_passwords].hash);
-				xorEncryption(taba[nb_passwords].hash, taba[nb_passwords].password, taba[nb_passwords].cipher);
-				fprintAccount(taba[nb_passwords]);
-				nb_passwords++;
-				break;
-			
-			case 3: // quit
-				break;
-			
-			default:
-				//choice = quit+1;
-				break;
+			a = (rand()+1.0)/(RAND_MAX+1.0);
+			if (a < p_maj)
+				c -= 32; //change c in MAJ
 		}
+		p[i] = c;
 	}
-	return 0;
+	for(int j = 4; j<19; j+=5)
+		p[j] = 45; // puts "-"
+	p[PASSWORD_LENGTH] = '\0';
+}
+
+void createHash(char *passwordAttempt, int nonce, unsigned char* hash)
+{
+	int l = strlen(passwordAttempt);
+	unsigned char attemptp[l + 1];
+	char sNonce[(int) log10(NB_ACCOUNT) + 2];
+	sprintf(sNonce, "%d", nonce);
+	strcpy(attemptp, passwordAttempt);
+	strcat(attemptp, sNonce);
+	hashToString(hash, SHA256(attemptp, l+1, 0));
+}
+
+void xorEncryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH])
+{
+	int hexi;
+	for (int i = 0; i < PASSWORD_LENGTH; i++)
+	{
+		hexi = hexToBinary(hash[i]);
+		cipher[i] = hexi ^ password[i];
+	}
+}
+
+void xorDecryption(char hash[HASH_HEX_SIZE], char password[PASSWORD_LENGTH], int cipher[PASSWORD_LENGTH])
+{
+	int hexi;
+	for (int i = 0; i < PASSWORD_LENGTH; i++)
+	{
+		hexi = hexToBinary(hash[i]);
+		password[i] = hexi ^ cipher[i];
+	}
 }

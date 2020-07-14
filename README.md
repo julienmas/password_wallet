@@ -30,12 +30,12 @@ $ git clone https://github.com/julienmas/password_wallet.git
 ```
 $ sudo apt-get install libssl-dev
 ```
-3. Choose a master password and compute its SHA-256 hash. If you want to use the default password which is '0000', go to 5. (highly unrecommended).
+3. Choose a master password (of no more than 20 characters) and compute its SHA-256 hash. If you want to use the default password which is '0000', go to 5. (highly unrecommended).
 
 ```
 $ openssl sha256 your-master-password
 ```
-4. Copy the hash and paste it in stead of the default password hash in line xxx of password_wallet.c
+4. Copy the hash and paste it in stead of the default password hash in line 319 of password_wallet.c (in function checkPassword()).
 
 5. Compile the code password_wallet :
 
@@ -67,13 +67,12 @@ A menu is displayed. Tap the number of your feature's choice, then tap enter.
 
 | Feature                                        | Status |
 | ---------------------------------------------- | ------ |
-| Connection with a master password              | ✅     |
-| Adding salt to the master password before hash | ❌     |
+| Connection with a master password (breakable)  | ✅     |
 | Password generation                            | ✅     |
 | Passwords encryption/decryption                | ✅     |
 | Manually add a password                        | ✅     |
 | Display warning about the strength of a password added | ❌      |
-| Remove a password                              | ❌      |
+| Remove an account                              | ❌      |
 | Sort accounts by alphabetical order            | ❌      |
 
 
