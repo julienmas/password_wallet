@@ -1,12 +1,12 @@
 CC=gcc
 CFLAGS= -lcrypto
 DEPS = 
-OBJ = password_generator.o
+OBJ = password_wallet.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-password_generator: $(OBJ)
+password_wallet: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
