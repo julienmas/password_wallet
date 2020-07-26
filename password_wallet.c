@@ -325,7 +325,7 @@ int checkPassword(unsigned char *attempt)
 	char sHashAttempt[HASH_HEX_SIZE];
 	hashToString(sHashAttempt, hashAttempt);
 
-	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) == 0)
+	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) != 0)
 	{
 		printf("Wrong password\n");
 		return 1;
