@@ -325,14 +325,14 @@ int checkPassword(unsigned char *attempt)
 	char sHashAttempt[HASH_HEX_SIZE];
 	hashToString(sHashAttempt, hashAttempt);
 
-	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) != 0)
+	if (strncmp(sHashAttempt, sHashPassword, HASH_HEX_SIZE) == 0)
 	{
-		printf("Wrong password\n");
 		return 1;
 	}
 	/*for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
 		printf("%02x", hashAttempt[i]);
 	putchar('\n'); */
+	printf("Wrong password\n");
 	return 0;
 }
 
